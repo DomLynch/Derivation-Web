@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %} · chain {{ root_id }}{% endblock %}
+{% block main %}
+<h2>Chain for <a href="/artifacts/{{ root_id }}">{{ root_id }}</a></h2>
+<p><small>{{ nodes|length }} node{{ 's' if nodes|length != 1 else '' }}. Root first; inputs below.</small></p>
+
+{% for n in nodes %}
+  <div class="node" data-kind="{{ n.artifact.kind.value }}" style="margin-left: {{ n.depth * 1.25 }}rem;">
+    <div class="kind">
+      depth {{ n.depth }} · {{ n.artifact.kind.value }}{% if n.producing_step %} · via <strong>{{ n.producing_step.step_type.value }}</strong>{% endif %}
+    </div>
+    <a href="/artifacts/{{ n.artifact.id }}"><code>{{ n.artifact.id }}</code></a>
+    {% if n.artifact.body_text %}
+      <pre>{{ n.artifact.body_text[:400] }}{% if n.artifact.body_text|length > 400 %}…{% endif %}</pre>
+    {% endif %}
+    <div class="hash">sha256 {{ n.artifact.content_hash[:16] }}…</div>
+    {% if n.challenges or n.revisions %}
+      <div class="annotations">
+        {% if n.challenges %}
+          <div>⚠ {{ n.challenges|length }} challenge{{ 's' if n.challenges|length != 1 else '' }}: {% for a, s in n.challenges %}<a href="/artifacts/{{ a.id }}">{{ a.id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        {% endif %}
+        {% if n.revisions %}
+          <div>↻ {{ n.revisions|length }} revision{{ 's' if n.revisions|length != 1 else '' }}: {% for a, s in n.revisions %}<a href="/artifacts/{{ a.id }}">{{ a.id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endfor %}
+{% endblock %}

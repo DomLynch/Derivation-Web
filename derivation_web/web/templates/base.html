@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Derivation Web{% block title %}{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #8884; padding-bottom: .5rem; margin-bottom: 1rem; }
+    header h1 { font-size: 1.1rem; margin: 0; }
+    .node { border-left: 2px solid #8884; padding: .5rem .75rem; margin: .5rem 0; border-radius: 2px; }
+    .node[data-kind="source"]    { border-color: #2a6; }
+    .node[data-kind="claim"]     { border-color: #38a; }
+    .node[data-kind="challenge"] { border-color: #c62; }
+    .node[data-kind="revision"]  { border-color: #a3a; }
+    .kind, .step-type { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7; }
+    .hash { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .75rem; opacity: .7; }
+    .annotations { margin-top: .5rem; font-size: .9rem; }
+    a { color: inherit; }
+    pre { background: #8881; padding: .5rem; overflow: auto; border-radius: 4px; font-size: .85rem; white-space: pre-wrap; }
+    details summary { cursor: pointer; }
+    h2, h3 { margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="/">Derivation Web</a></h1>
+    <small>v0.1 · <a href="/docs">api</a></small>
+  </header>
+  <main>
+    {% block main %}{% endblock %}
+  </main>
+</body>
+</html>

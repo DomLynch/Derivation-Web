@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %} · {{ artifact.id }}{% endblock %}
+{% block main %}
+<section class="node" data-kind="{{ artifact.kind.value }}">
+  <div class="kind">{{ artifact.kind.value }} · {{ artifact.content_type }}</div>
+  <h2>{{ artifact.id }}</h2>
+  <div class="hash">sha256 {{ artifact.content_hash }}</div>
+  <p>by <code>{{ actor.id if actor else artifact.actor_id }}</code> · {{ artifact.created_at }}</p>
+  {% if artifact.body_text %}
+    <pre>{{ artifact.body_text }}</pre>
+  {% elif artifact.body_base64 %}
+    <p><em>binary body ({{ artifact.body_base64|length }} b64 chars)</em></p>
+  {% endif %}
+  {% if artifact.metadata %}
+    <details><summary>metadata</summary><pre>{{ artifact.metadata | tojson(indent=2) }}</pre></details>
+  {% endif %}
+</section>
+
+{% if producing %}
+<section>
+  <h3>Produced by</h3>
+  <div class="node">
+    <div class="step-type">{{ producing.step_type.value }}</div>
+    <div class="hash">step {{ producing.id }} · hash {{ producing.step_hash[:16] }}…{% if producing.signature_b64 %} · signed{% endif %}</div>
+    <p>inputs:
+      {% for iid in producing.input_artifact_ids %}<a href="/artifacts/{{ iid }}">{{ iid }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+    {% if producing.method %}<details><summary>method</summary><pre>{{ producing.method | tojson(indent=2) }}</pre></details>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if challenges %}
+<section>
+  <h3>Challenges ({{ challenges|length }})</h3>
+  {% for a, s in challenges %}
+    <div class="node" data-kind="challenge">
+      <div class="kind">challenge · <a href="/artifacts/{{ a.id }}">{{ a.id }}</a></div>
+      {% if a.body_text %}<pre>{{ a.body_text }}</pre>{% endif %}
+    </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if revisions %}
+<section>
+  <h3>Revisions ({{ revisions|length }})</h3>
+  {% for a, s in revisions %}
+    <div class="node" data-kind="revision">
+      <div class="kind">revision · <a href="/artifacts/{{ a.id }}">{{ a.id }}</a></div>
+      {% if a.body_text %}<pre>{{ a.body_text }}</pre>{% endif %}
+    </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<p><a href="/artifacts/{{ artifact.id }}/chain">view full chain →</a></p>
+{% endblock %}
