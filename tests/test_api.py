@@ -22,6 +22,32 @@ def test_health(client):
     assert r.json() == {"status": "ok"}
 
 
+def test_views_render(client):
+    """All three server-rendered routes must actually return HTML, not 500.
+
+    Caught a Starlette signature regression (TemplateResponse(name, ctx) vs
+    (request, name, ctx)) that mypy + API-only tests missed.
+    """
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    assert "text/html" in r.headers["content-type"]
+
+    client.post("/api/actors", json={"id": "v:dev", "kind": "human", "name": "V"})
+    r = client.post(
+        "/api/artifacts",
+        json={
+            "kind": "claim",
+            "content_type": "text/plain",
+            "body_text": "view coverage",
+            "actor_id": "v:dev",
+        },
+    )
+    aid = r.json()["id"]
+
+    assert client.get(f"/artifacts/{aid}").status_code == 200
+    assert client.get(f"/artifacts/{aid}/chain").status_code == 200
+
+
 def test_vertical_slice(client):
     r = client.post(
         "/api/actors", json={"id": "local:dev", "kind": "human", "name": "Dev"}

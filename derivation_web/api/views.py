@@ -20,7 +20,7 @@ SessionDep = Annotated[Session, Depends(get_session)]
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
     templates = request.app.state.templates
-    return templates.TemplateResponse("index.html", {"request": request})  # type: ignore[no-any-return]
+    return templates.TemplateResponse(request, "index.html")  # type: ignore[no-any-return]
 
 
 @router.get("/artifacts/{artifact_id}", response_class=HTMLResponse)
@@ -35,9 +35,9 @@ def view_artifact(
     actor = repo.get_actor(session, artifact.actor_id)
     templates = request.app.state.templates
     return templates.TemplateResponse(  # type: ignore[no-any-return]
+        request,
         "artifact.html",
         {
-            "request": request,
             "artifact": artifact,
             "actor": actor,
             "producing": producing,
@@ -72,9 +72,9 @@ def view_chain(
         )
     templates = request.app.state.templates
     return templates.TemplateResponse(  # type: ignore[no-any-return]
+        request,
         "chain.html",
         {
-            "request": request,
             "root_id": artifact_id,
             "nodes": rendered,
         },
