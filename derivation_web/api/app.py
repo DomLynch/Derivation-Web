@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -19,8 +20,25 @@ _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 _TEMPLATES_DIR = _WEB_DIR / "templates"
 _STATIC_DIR = _WEB_DIR / "static"
 
-# Make sure the audit logger emits at INFO regardless of root config.
-logging.getLogger("derivation_web.audit").setLevel(logging.INFO)
+
+def _configure_audit_logger() -> None:
+    """Audit logger writes structured JSON to stdout. Idempotent so
+    workers + tests don't double-attach handlers.
+    """
+    audit_logger = logging.getLogger("derivation_web.audit")
+    audit_logger.setLevel(logging.INFO)
+    if any(getattr(h, "_dw_audit", False) for h in audit_logger.handlers):
+        return
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    handler._dw_audit = True  # type: ignore[attr-defined]
+    audit_logger.addHandler(handler)
+    # Propagate so test caplog (and any future root-level aggregator) can
+    # observe records. Root logger has no default handler, so this does
+    # not double-emit in production.
+
+
+_configure_audit_logger()
 
 
 def create_app() -> FastAPI:

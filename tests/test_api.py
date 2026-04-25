@@ -30,6 +30,50 @@ def test_request_id_header_set(client):
     assert len(r.headers["x-request-id"]) == 12
 
 
+def test_audit_log_emits_structured_json(client, caplog):
+    """Audit middleware must emit a parseable JSON line per request."""
+    import json
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="derivation_web.audit"):
+        client.get("/health")
+
+    audit_records = [
+        r for r in caplog.records if r.name == "derivation_web.audit"
+    ]
+    assert audit_records, "no audit log line emitted"
+    payload = json.loads(audit_records[-1].getMessage())
+    assert payload["evt"] == "http"
+    assert payload["method"] == "GET"
+    assert payload["path"] == "/health"
+    assert payload["status"] == 200
+    assert isinstance(payload["duration_ms"], int | float)
+    assert payload["client_id"] is None  # health is unauthed
+    assert "request_id" in payload
+
+
+def test_audit_log_includes_client_id_for_authed_requests(client, caplog):
+    """Authed requests must record client_id + key_id for forensics."""
+    import json
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="derivation_web.audit"):
+        client.post(
+            "/api/actors",
+            json={"id": "audit:probe", "kind": "human", "name": "AuditProbe"},
+        )
+
+    audit = [
+        json.loads(r.getMessage())
+        for r in caplog.records
+        if r.name == "derivation_web.audit"
+    ]
+    post = next(p for p in audit if p["method"] == "POST")
+    assert post["client_id"] == "testclient"
+    assert post["key_id"].startswith("key_")
+    assert post["status"] == 201
+
+
 def test_views_render(client):
     """All three server-rendered routes must actually return HTML, not 500.
 
