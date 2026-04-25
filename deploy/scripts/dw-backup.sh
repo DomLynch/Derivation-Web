@@ -48,17 +48,22 @@ if [[ "$SIZE" -lt 1024 ]]; then
     exit 2
 fi
 
-echo "$(date -Iseconds): dw-backup $OUT $(du -h "$OUT" | cut -f1)"
+echo "$(date -Iseconds): dw-backup local $OUT $(du -h "$OUT" | cut -f1)"
 
-# OFF-BOX COPY (operator wires this up):
-#
-#   Add to /etc/derivation-web/env (or a separate include):
-#     OFFBOX_TARGET=user@offbox-host:/path/to/dw-backups/
-#     # OR for S3-compatible:
-#     # OFFBOX_S3_BUCKET=s3://bucket/dw-backups/
-#
-#   Then append to this script (above retention, below the dump):
-#     [[ -n "${OFFBOX_TARGET:-}" ]] && rsync -e 'ssh -i /root/.ssh/offbox' "$OUT" "$OFFBOX_TARGET"
-#     [[ -n "${OFFBOX_S3_BUCKET:-}" ]] && aws s3 cp "$OUT" "$OFFBOX_S3_BUCKET"
-#
-# Rotation can stay local-only; the off-box copy is the disaster-recovery layer.
+# Off-box copy. Requires both env vars set (see /etc/derivation-web/env):
+#   OFFBOX_RSYNC_TARGET=root@<host>:/path/   (e.g. root@100.97.248.77:/var/dw-backups/)
+#   OFFBOX_RSYNC_KEY=/root/.ssh/<key>        (private key authorized on target)
+# A failure here exits non-zero so systemd surfaces it via journald —
+# silent off-box failures over weeks are exactly how disaster recovery
+# breaks when you finally need it.
+if [[ -n "${OFFBOX_RSYNC_TARGET:-}" && -f "${OFFBOX_RSYNC_KEY:-}" ]]; then
+    if rsync -a -e "ssh -i ${OFFBOX_RSYNC_KEY} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15" \
+            "$OUT" "$OFFBOX_RSYNC_TARGET"; then
+        echo "$(date -Iseconds): dw-backup offbox $OUT -> $OFFBOX_RSYNC_TARGET"
+    else
+        echo "$(date -Iseconds): dw-backup offbox FAILED to $OFFBOX_RSYNC_TARGET" >&2
+        exit 3
+    fi
+else
+    echo "$(date -Iseconds): dw-backup offbox SKIPPED (OFFBOX_RSYNC_TARGET / OFFBOX_RSYNC_KEY not set)" >&2
+fi
