@@ -17,21 +17,24 @@ jobs:
 
     services:
       db:
-        image: postgres:16-alpine
+        image: postgres:16
         env:
           POSTGRES_USER: dw
           POSTGRES_PASSWORD: dw
           POSTGRES_DB: dw
         ports:
-          - 5432:5432
+          # Use a non-default host port to avoid any collision with
+          # postgres pre-installed on the runner image.
+          - 15432:5432
         options: >-
-          --health-cmd "pg_isready -U dw"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 30
+          --health-cmd "pg_isready"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 10s
 
     env:
-      DATABASE_URL: postgresql+psycopg://dw:dw@localhost:5432/dw
+      DATABASE_URL: postgresql+psycopg://dw:dw@localhost:15432/dw
       DW_MAX_ARTIFACT_BYTES: "10485760"
 
     steps:
@@ -45,6 +48,24 @@ jobs:
 
       - name: Install
         run: pip install -e '.[dev]'
+
+      - name: Verify Postgres user exists
+        # Defense-in-depth: confirm the dw role and db are usable BEFORE
+        # alembic / pytest. If the service init didn't complete, fail
+        # loud here with a clear diagnostic instead of a deep stacktrace.
+        env:
+          PGPASSWORD: dw
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if psql -h localhost -p 15432 -U dw -d dw -c "SELECT current_user;" >/dev/null 2>&1; then
+              echo "postgres ready: dw/dw/dw"
+              exit 0
+            fi
+            echo "waiting for postgres ($i/10)…"
+            sleep 2
+          done
+          echo "postgres did not accept dw/dw after 20s" >&2
+          exit 1
 
       - name: Ruff
         run: ruff check .

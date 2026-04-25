@@ -86,10 +86,22 @@
 **Why:** Feedback: "do not waste time on GitHub ceremony before the skeleton exists."
 **Revisit:** after first green run of the vertical slice.
 
-## 2026-04-25 — Manual gates, no GitHub Actions
+## 2026-04-25 — Manual gates, no GitHub Actions (SUPERSEDED 2026-04-25)
 **Decision:** Run `ruff check . && mypy derivation_web && pytest -q` locally before every push. No `.github/workflows/`.
 **Why:** Solo dev, GH Actions billing not desired, single-laptop discipline is sufficient for v1. Workflow file would just sit dormant; deletion is the deletion-pass-friendly answer (rule 7).
-**Revisit if:** a second contributor lands, OR repo flips to public (free Actions).
+**Superseded by** "GitHub Actions + repo public" entry below — independent reviewer flagged that an auth-bearing public service needs a server-side gate that `--no-verify` cannot bypass. Keeping this entry as history so future readers see the reasoning of both passes.
+
+## 2026-04-25 — GitHub Actions + repo public (belt and suspenders)
+**Decision:** Restore `.github/workflows/ci.yml`. Flip repo to PUBLIC (free Actions on public repos). Keep `.githooks/pre-push` as a fast local gate.
+**Why:**
+- Pre-push hook alone can be bypassed with `git push --no-verify` and is absent on a fresh clone until `core.hooksPath` is configured. For an auth-bearing public service that's below AAA.
+- Public repo = free Actions, no payment, runs on every push and PR regardless of bypass intent.
+- Repo has no secrets (verified via history scan); substrate ethos already implies "Researka is customer zero, not the container," so open is consistent.
+- Two layers, two failure modes: hook catches regressions in seconds locally; Actions is the authoritative gate that blocks merges.
+**Alternatives rejected:**
+- Self-hosted runner on VPS2 — extra attack surface (runner executes any code in repo as the runner user); not earned by current threat model.
+- Hook-only — bypassable, not server-enforced.
+**Revisit if:** the repo needs to go private (license, IP, etc.); then either self-host a runner or pay for Actions minutes.
 
 ## 2026-04-25 — Tailscale-only deploy until auth ships
 **Decision:** First VPS deploy bound to `100.96.74.1:8080` (Tailscale interface). No public DNS, no nginx, no SSL.

@@ -3,9 +3,11 @@
 # Run by dw-backup.timer (systemd). Reads DATABASE_URL from env file.
 #
 # Layout:
-#   /var/backups/derivation-web/dw-YYYYMMDD-HHMMSS.sql.gz
-# Retention: 14 days local. Off-box copy is the operator's job — see
-# README at the bottom for the recommended one-liner.
+#   /var/backups/derivation-web/dw-YYYYMMDD-HHMMSSZ.sql.gz   (local, 14-day rotation)
+#   $OFFBOX_RSYNC_TARGET                                    (off-box, accumulating)
+# Off-box rsync is REQUIRED for production: missing config or rsync
+# failure both exit non-zero. To intentionally disable (single-host
+# dev only), set OFFBOX_RSYNC_DISABLED=1 in /etc/derivation-web/env.
 
 set -euo pipefail
 
