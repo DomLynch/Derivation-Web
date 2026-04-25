@@ -70,17 +70,21 @@ def test_extract_key_handles_empty():
 def test_write_actors_requires_key(unauthed_client):
     r = unauthed_client.post("/api/actors", json=_VALID_ACTOR)
     assert r.status_code == 401
+    # WWW-Authenticate header is the unique signal of the auth path,
+    # so an asserted 401 from validation/DB lookup wouldn't match.
     assert r.headers.get("www-authenticate") == "Bearer"
 
 
 def test_write_artifacts_requires_key(unauthed_client):
     r = unauthed_client.post("/api/artifacts", json=_VALID_ARTIFACT)
     assert r.status_code == 401
+    assert r.headers.get("www-authenticate") == "Bearer"
 
 
 def test_write_steps_requires_key(unauthed_client):
     r = unauthed_client.post("/api/steps", json=_VALID_STEP)
     assert r.status_code == 401
+    assert r.headers.get("www-authenticate") == "Bearer"
 
 
 def test_invalid_key_rejected(unauthed_client):
@@ -107,6 +111,44 @@ def test_empty_bearer_rejected(unauthed_client):
         "/api/actors",
         json=_VALID_ACTOR,
         headers={"Authorization": "Bearer "},
+    )
+    assert r.status_code == 401
+
+
+def test_oversized_key_rejected_without_db_hit(unauthed_client):
+    """DoS guard: 256KB string must 401 immediately, not hash."""
+    huge = "dwk_" + ("a" * (256 * 1024))
+    r = unauthed_client.post(
+        "/api/actors",
+        json=_VALID_ACTOR,
+        headers={"Authorization": f"Bearer {huge}"},
+    )
+    assert r.status_code == 401
+
+
+def test_wrong_prefix_rejected(unauthed_client):
+    """Non-DW prefix is rejected by the cheap pre-check, same 401 message."""
+    r = unauthed_client.post(
+        "/api/actors",
+        json=_VALID_ACTOR,
+        headers={"Authorization": "Bearer notourprefix_abcdef"},
+    )
+    assert r.status_code == 401
+    assert "invalid" in r.json()["detail"].lower()
+
+
+def test_smuggled_dual_bearer_in_one_header_rejected(unauthed_client, issued_key):
+    """Smuggling guard: `Bearer A, Bearer B` in one header must NOT auth.
+
+    A buggy parser using parts[-1] instead of parts[1] could let an
+    attacker prepend an invalid token and still authenticate via the
+    trailing valid one. _extract_key requires exactly two parts.
+    """
+    raw, _ = issued_key
+    r = unauthed_client.post(
+        "/api/actors",
+        json=_VALID_ACTOR,
+        headers={"Authorization": f"Bearer dwk_smuggleA, Bearer {raw}"},
     )
     assert r.status_code == 401
 

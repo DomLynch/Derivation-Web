@@ -55,10 +55,29 @@ Passive ledger, 3-entity schema, HTMX+Jinja, inline Postgres bodies, backward wa
 ## Open risks
 1. Sorted-key JSON ≠ RFC 8785 on float edge cases — acceptable for v1 text-heavy payloads; revisit if Researka hashes floats in metadata.
 2. Array column `input_artifact_ids` is Postgres-only; SQLite tests skip.
-3. No auth — do not expose v1 publicly.
+3. ~~No auth — do not expose v1 publicly.~~ **Resolved 2026-04-25** — API-key transport auth shipped; see `DECISIONS.md`.
 
 ## Perf measurements
-N/A v1.
+- Auth dep adds 1× SHA-256 + 1× indexed DB lookup per write — sub-millisecond. 61 tests in 1.1s on local Postgres.
 
 ## Next validation step
-`pytest -q` must be green after scaffold. Then a manual curl walkthrough of the vertical slice.
+Researka points its client at `https://dw.domlynch.com` with the issued key in `Authorization: Bearer …` and starts POSTing.
+
+---
+
+## Live state (as of 2026-04-25)
+
+| Layer    | Endpoint                                 | Status                  |
+|----------|------------------------------------------|-------------------------|
+| MacBook  | dev only, gates via `make lint typecheck test` | green                   |
+| GitHub   | `DomLynch/Derivation-Web` private        | synced (manual pushes)  |
+| VPS      | systemd `derivation-web` → 100.96.74.1:8080  | active                  |
+| Public   | `https://dw.domlynch.com` (nginx + Let's Encrypt) | live, HTTPS-only |
+
+**Auth gate** is on `POST /api/{actors,artifacts,steps}`. Reads remain open.
+
+**Blast-fence retained**: uvicorn bound only to Tailscale interface. Nginx is the sole bridge from public to upstream. Direct `:8080` on the public IP is unreachable (TCP timeout, verified).
+
+**Kill switch**: `systemctl stop derivation-web` on VPS; nginx will then return 502 for all routes.
+
+**Cert renewal**: Let's Encrypt auto-renews via the existing `certbot.timer`. Cert expires 2026-07-24.

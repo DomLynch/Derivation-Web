@@ -61,9 +61,9 @@ class ApiKeyRow(Base):
     __tablename__ = "api_keys"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    key_hash: Mapped[str] = mapped_column(
-        String(64), nullable=False, unique=True, index=True
-    )
+    # `unique=True` already creates the backing unique index Postgres uses
+    # for equality lookups; an extra index=True would double the writes.
+    key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     client_id: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False

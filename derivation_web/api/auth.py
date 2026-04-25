@@ -24,6 +24,9 @@ from derivation_web.db.session import get_session
 
 KEY_PREFIX = "dwk_"
 _KEY_BYTES = 32  # 256 bits of entropy
+# Hard cap on accepted key length: prevents DoS via giant strings (sha256
+# over 10MB ≈ 25 ms per request). Real keys are ~47 chars.
+MAX_KEY_LEN = 128
 
 
 def generate_key() -> tuple[str, str]:
@@ -47,6 +50,15 @@ def _extract_key(authorization: str | None, x_api_key: str | None) -> str | None
     return None
 
 
+def _looks_like_dw_key(key: str) -> bool:
+    """Cheap pre-check before hashing. Same 401 message either way."""
+    return (
+        key.startswith(KEY_PREFIX)
+        and len(key) <= MAX_KEY_LEN
+        and len(key) >= len(KEY_PREFIX) + 1
+    )
+
+
 def require_api_key(
     session: Annotated[Session, Depends(get_session)],
     authorization: Annotated[str | None, Header()] = None,
@@ -54,13 +66,21 @@ def require_api_key(
 ) -> str:
     """FastAPI dependency. Returns client_id of the validated key.
 
-    Raises 401 if header is missing, malformed, unknown, or revoked.
+    Raises 401 if header is missing, malformed, unknown, or revoked. The
+    same message is used for malformed and unknown to avoid an oracle.
     """
     key = _extract_key(authorization, x_api_key)
     if not key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="missing API key (use Authorization: Bearer <key> or X-API-Key)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not _looks_like_dw_key(key):
+        # Reject without DB hit. Defends against unbounded-input DoS.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or revoked API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
     record = repo.find_active_api_key_by_hash(session, hash_key(key))

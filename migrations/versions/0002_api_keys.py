@@ -18,6 +18,8 @@ depends_on: str | None = None
 
 
 def upgrade() -> None:
+    # `unique=True` on key_hash gives us the unique-constraint backing
+    # index Postgres uses for equality lookups — no extra index needed.
     op.create_table(
         "api_keys",
         sa.Column("id", sa.String(64), primary_key=True),
@@ -26,9 +28,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
     )
-    op.create_index("ix_api_keys_key_hash", "api_keys", ["key_hash"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_api_keys_key_hash", table_name="api_keys")
     op.drop_table("api_keys")
