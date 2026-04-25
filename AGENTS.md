@@ -63,11 +63,23 @@ uvicorn derivation_web.api.app:app --reload --port 8080
 pytest -q        # core tests always; API tests need DATABASE_URL
 ```
 
-## Pre-push checks (CI is intentional opt-out)
-Run all three before every push. No GitHub Actions; no `.github/workflows/`.
+## Pre-push checks (enforced via git hook, not GitHub Actions)
+The repo ships a `.githooks/pre-push` script that runs `ruff`, `mypy`,
+and `pytest` and refuses the push if any fail or `DATABASE_URL` is unset
+(prevents DB tests from silently skipping). This is git-native and the
+substitute for cloud CI.
+
+Activate in a fresh clone (one-time):
+```
+git config core.hooksPath .githooks
+```
+
+Manual run (same gates the hook runs):
 ```
 ruff check . && mypy derivation_web && pytest -q
 ```
+
+Bypass intentionally with `git push --no-verify` — you own the consequences.
 
 ## Deploy
 Runs on VPS Brain (`100.96.74.1:8080`, uvicorn bound to Tailscale interface).

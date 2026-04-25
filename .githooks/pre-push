@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Enforced pre-push gate. CI is intentional opt-out; this is the substitute.
+# To activate in a fresh clone: git config core.hooksPath .githooks
+#
+# Behavior:
+# - Runs ruff, mypy, pytest with the project venv.
+# - Refuses to push if DATABASE_URL is unset (DB tests must run, not skip).
+# - To bypass intentionally: git push --no-verify (you own the consequences).
+
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Source .env for DATABASE_URL etc. if not already in the shell.
+if [ -z "${DATABASE_URL:-}" ] && [ -f .env ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . .env
+    set +a
+fi
+if [ -z "${DATABASE_URL:-}" ]; then
+    echo "pre-push: DATABASE_URL is not set. Either:" >&2
+    echo "  (a) export it / put it in .env, or" >&2
+    echo "  (b) push with --no-verify (skips the gate; auth-bearing — careful)." >&2
+    exit 1
+fi
+
+VENV=.venv/bin
+if [ ! -x "$VENV/ruff" ] || [ ! -x "$VENV/mypy" ] || [ ! -x "$VENV/pytest" ]; then
+    echo "pre-push: .venv missing tools. Run: python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'" >&2
+    exit 1
+fi
+
+echo "pre-push › ruff"
+"$VENV/ruff" check .
+echo "pre-push › mypy"
+"$VENV/mypy" derivation_web
+echo "pre-push › pytest"
+"$VENV/pytest" -q
+echo "pre-push › all gates green"
