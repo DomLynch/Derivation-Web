@@ -63,23 +63,23 @@ uvicorn derivation_web.api.app:app --reload --port 8080
 pytest -q        # core tests always; API tests need DATABASE_URL
 ```
 
-## Pre-push checks (enforced via git hook, not GitHub Actions)
-The repo ships a `.githooks/pre-push` script that runs `ruff`, `mypy`,
-and `pytest` and refuses the push if any fail or `DATABASE_URL` is unset
-(prevents DB tests from silently skipping). This is git-native and the
-substitute for cloud CI.
+## CI: GitHub Actions + local pre-push hook (belt and suspenders)
+Two enforcement layers:
 
-Activate in a fresh clone (one-time):
-```
-git config core.hooksPath .githooks
-```
+1. **GitHub Actions** (`.github/workflows/ci.yml`) — runs ruff + mypy +
+   alembic + pytest on every push and PR against a Postgres 16 service.
+   Authoritative gate; cannot be bypassed by `--no-verify`. Requires
+   the repo to be **public** (free Actions) or paid private minutes.
+2. **Local pre-push hook** (`.githooks/pre-push`) — runs the same gates
+   on the developer's machine before the push leaves the laptop, catching
+   regressions in seconds rather than waiting for CI. Activate in a fresh
+   clone with: `git config core.hooksPath .githooks`. Bypassable with
+   `git push --no-verify` — but Actions still gates the merge.
 
-Manual run (same gates the hook runs):
+Manual run (same commands either layer issues):
 ```
 ruff check . && mypy derivation_web && pytest -q
 ```
-
-Bypass intentionally with `git push --no-verify` — you own the consequences.
 
 ## Deploy
 Runs on VPS Brain (`100.96.74.1:8080`, uvicorn bound to Tailscale interface).
