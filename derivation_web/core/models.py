@@ -143,6 +143,16 @@ class Step(BaseModel):
     created_at: datetime
 
 
+class ApiKey(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    key_hash: str
+    client_id: str
+    created_at: datetime
+    revoked_at: datetime | None = None
+
+
 class StepCreate(BaseModel):
     step_type: StepType
     input_artifact_ids: list[str] = Field(default_factory=list)
@@ -167,6 +177,7 @@ __all__ = [
     "Actor",
     "ActorCreate",
     "ActorKind",
+    "ApiKey",
     "Artifact",
     "ArtifactCreate",
     "ArtifactKind",

@@ -21,7 +21,7 @@ One vertical slice end-to-end:
 - Researka-compatible actor schema — see `INTEGRATION.md`
 
 ### Out (non-goals, v1)
-LLM calls, auth, multi-tenant, object storage, NetworkX, trust scoring, reputation, blockchain, federation, React/Next, websockets, export/report, graph viz, bulk APIs, webhooks.
+LLM calls, multi-tenant, object storage, NetworkX, trust scoring, reputation, blockchain, federation, React/Next, websockets, export/report, graph viz, bulk APIs, webhooks. **Auth: in-scope as of 2026-04-25** — API-key transport auth on write endpoints. See `INTEGRATION.md` for the header contract.
 
 ## Layered architecture
 ```
@@ -70,8 +70,15 @@ ruff check . && mypy derivation_web && pytest -q
 ```
 
 ## Deploy
-v1 runs on VPS Brain (`100.96.74.1:8080`, Tailscale-only, no public DNS,
-no SSL — bound to Tailscale IP as the blast-fence until API-key auth ships).
+Runs on VPS Brain (`100.96.74.1:8080`, uvicorn bound to Tailscale interface).
+Public reachability: `https://dw.domlynch.com` via nginx + Let's Encrypt
+once configured.
 - Service: `systemctl {status,restart,stop} derivation-web`
 - Pull + restart pattern (as root on VPS):
   `cd /opt/derivation-web && git pull --ff-only && chown -R dw:dw . && chown -R root:root .git && systemctl restart derivation-web`
+- Migrations after pull (if migrations changed):
+  `set -a; . /etc/derivation-web/env; set +a; /opt/derivation-web/.venv/bin/alembic upgrade head`
+- Issue / revoke / list API keys:
+  `set -a; . /etc/derivation-web/env; set +a`
+  `/opt/derivation-web/.venv/bin/python -m derivation_web.tools.issue_key {issue --client-id <name> | revoke --key-id <id> | list}`
+- Kill switch: `systemctl stop derivation-web` (instantly takes service offline; nginx will start returning 502).

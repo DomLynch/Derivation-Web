@@ -85,3 +85,46 @@
 **Decision:** No GitHub repo, no CI, no deploy in v1.
 **Why:** Feedback: "do not waste time on GitHub ceremony before the skeleton exists."
 **Revisit:** after first green run of the vertical slice.
+
+## 2026-04-25 — Manual gates, no GitHub Actions
+**Decision:** Run `ruff check . && mypy derivation_web && pytest -q` locally before every push. No `.github/workflows/`.
+**Why:** Solo dev, GH Actions billing not desired, single-laptop discipline is sufficient for v1. Workflow file would just sit dormant; deletion is the deletion-pass-friendly answer (rule 7).
+**Revisit if:** a second contributor lands, OR repo flips to public (free Actions).
+
+## 2026-04-25 — Tailscale-only deploy until auth ships
+**Decision:** First VPS deploy bound to `100.96.74.1:8080` (Tailscale interface). No public DNS, no nginx, no SSL.
+**Why:** Per playbook rule 43 — high-blast-radius (auth-touching) changes require a blast-fence. Tailscale-only listener IS the fence: literal kernel-level "service is not on a public interface", verified via `ss -tlnp` + connection-refused from public IP. Cannot be bypassed by misconfiguration the way an nginx allowlist can.
+**Alternatives rejected:**
+- Public deploy with no auth — open POSTs to the internet, anyone can forge artifacts.
+- Public deploy with nginx basic-auth — couples auth to the proxy layer, can't revoke per-client without nginx reload.
+- Cloudflare Access tunnel — extra dependency, extra failure mode, extra cost surface.
+**Revisit:** when API-key auth is verified working (this commit + next).
+
+## 2026-04-25 — API-key transport auth, separate from step signatures
+**Decision:** Add API-key auth on `POST /actors`, `POST /artifacts`, `POST /steps`. Header: `Authorization: Bearer <key>` or `X-API-Key: <key>`. Read endpoints unauthenticated. One key per integration (Researka first). Server stores SHA-256 hashes, never raw keys.
+**Why:** Auth and signatures answer two different questions:
+- API key = *transport*: who is allowed to call DW.
+- Ed25519 signature = *production*: who produced and stands behind this step.
+Conflating them (e.g. binding a key to an actor_id) would make Researka unable to submit steps on behalf of multiple agents under one server credential. Keep them orthogonal.
+**Schema:** `api_keys (id, key_hash UNIQUE, client_id, created_at, revoked_at NULLABLE)`. No `last_used_at` (write per request violates perf budget; not needed for v1).
+**Threat model considered:**
+- DB leak → only hashes exposed; raw keys uncrackable from sha256 of 256-bit secret.
+- Sniff over wire → keys travel only over HTTPS once public DNS lands; never expose service over plain HTTP.
+- Timing attack on hash compare → DB indexed lookup on `key_hash`; sha256 itself is constant-time.
+- Replay of a captured request → out of scope for v1 (acceptable given append-only and HTTPS); revisit if needed.
+- Compromised key → operator runs `python -m derivation_web.tools.issue_key revoke --key-id <id>`; takes effect on next request.
+- Lockout from misconfigured dep → rollback via `git revert` + `systemctl restart`; kill switch via `systemctl stop derivation-web`.
+**Out of scope (v1):** rate limiting, scopes (read/write split), per-actor binding, OAuth/JWT/OIDC, key rotation (issue new + revoke old is sufficient).
+**Alternatives rejected:**
+- Bind API key to a single `actor_id` — breaks Researka submitting on behalf of multiple agents.
+- Skip API key, rely on Ed25519 signatures alone — signatures only prove producer identity; they don't gate writes (anyone can submit a signed-by-Alice step *as long as Alice already published a pubkey*).
+- nginx-level basic auth — can't revoke programmatically, mixes layers.
+**Revisit if:** rate limiting becomes urgent, or multi-tenant isolation is needed.
+
+## 2026-04-25 — Public DNS via nginx + Let's Encrypt, bind unchanged
+**Decision:** Front DW with nginx at `dw.domlynch.com`. nginx upstream proxies to `http://100.96.74.1:8080`. Let's Encrypt issues a cert via certbot (HTTP-01). HTTP redirects to HTTPS.
+**Why:** Standard pattern on Brain (matches mcp.domlynch.com). Keeping uvicorn bound to Tailscale IP rather than `127.0.0.1` lets us verify post-deploy that even if nginx is removed, no public listener remains — extra defense.
+**Alternatives rejected:**
+- Bind uvicorn to `0.0.0.0` + ufw rules — easier to misconfigure firewall than to misconfigure interface bind.
+- Cloudflare-fronted — extra dependency, hides the real client IP unless we configure trusted proxies, blurs blast-radius reasoning.
+**Revisit if:** subdomain consolidation or Cloudflare-specific features become valuable.

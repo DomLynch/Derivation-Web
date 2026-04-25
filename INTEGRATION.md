@@ -18,6 +18,32 @@ of separating the substrate from the consumer.
 
 ---
 
+## Authentication
+
+All `POST` endpoints (`/actors`, `/artifacts`, `/steps`) require an API key.
+`GET` endpoints (`/artifacts/{id}`, `/artifacts/{id}/chain`, `/health`) are
+unauthenticated.
+
+```http
+Authorization: Bearer dwk_<43-char-urlsafe-base64>
+# or, equivalently:
+X-API-Key: dwk_<43-char-urlsafe-base64>
+```
+
+- Keys are scoped per-client (e.g. one for Researka). The DW operator issues
+  them on the server and hands the raw key over once. Only the SHA-256 hash
+  is persisted; lost keys cannot be recovered, only revoked + replaced.
+- API key auth and Ed25519 step signatures answer different questions:
+  - **API key**: who is allowed to call DW (transport).
+  - **Step signature**: who produced and stands behind a specific step
+    (provenance). The same client may submit signed steps on behalf of
+    multiple `actor_id`s under one API key.
+- Missing / malformed / unknown / revoked keys all yield `401` with a
+  `WWW-Authenticate: Bearer` header. No information is leaked about whether
+  a presented key was syntactically valid vs. unknown.
+
+---
+
 ## Actors
 
 Every agent, reviewer, or human that produces an artifact is an Actor.

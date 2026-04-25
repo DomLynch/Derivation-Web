@@ -57,6 +57,20 @@ class ArtifactRow(Base):
     )
 
 
+class ApiKeyRow(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    key_hash: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, index=True
+    )
+    client_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class StepRow(Base):
     __tablename__ = "steps"
 

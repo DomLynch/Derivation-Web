@@ -41,3 +41,13 @@ def get_session() -> Generator[Session, None, None]:
     assert _session_factory is not None
     with _session_factory() as session:
         yield session
+
+
+def make_session() -> Session:
+    """Return a single Session for non-FastAPI callers (CLI, test setup).
+
+    Caller is responsible for closing it (use as a context manager).
+    """
+    _ensure()
+    assert _session_factory is not None
+    return _session_factory()

@@ -9,6 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from derivation_web.api.auth import require_api_key
 from derivation_web.core.graph import walk_provenance
 from derivation_web.core.hashing import content_hash, step_hash
 from derivation_web.core.models import (
@@ -35,7 +36,12 @@ def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:16]}"
 
 
-@router.post("/actors", response_model=Actor, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/actors",
+    response_model=Actor,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
 def create_actor(payload: ActorCreate, session: SessionDep) -> Actor:
     if repo.get_actor(session, payload.id) is not None:
         raise HTTPException(409, f"actor {payload.id!r} already exists")
@@ -59,7 +65,10 @@ def get_actor(actor_id: str, session: SessionDep) -> Actor:
 
 
 @router.post(
-    "/artifacts", response_model=Artifact, status_code=status.HTTP_201_CREATED
+    "/artifacts",
+    response_model=Artifact,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
 )
 def create_artifact(payload: ArtifactCreate, session: SessionDep) -> Artifact:
     if repo.get_actor(session, payload.actor_id) is None:
@@ -111,7 +120,12 @@ def _validate_step_created_at(created_at: datetime) -> None:
         )
 
 
-@router.post("/steps", response_model=Step, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/steps",
+    response_model=Step,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
 def create_step(payload: StepCreate, session: SessionDep) -> Step:
     _validate_step_created_at(payload.created_at)
 

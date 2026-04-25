@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,12 +11,13 @@ from derivation_web.core.models import (
     ANNOTATION_STEP_TYPES,
     Actor,
     ActorKind,
+    ApiKey,
     Artifact,
     ArtifactKind,
     Step,
     StepType,
 )
-from derivation_web.db.schema import ActorRow, ArtifactRow, StepRow
+from derivation_web.db.schema import ActorRow, ApiKeyRow, ArtifactRow, StepRow
 
 
 def _to_actor(row: ActorRow) -> Actor:
@@ -129,6 +132,54 @@ def get_producing_step(session: Session, artifact_id: str) -> Step | None:
     stmt = select(StepRow).where(StepRow.output_artifact_id == artifact_id)
     row = session.scalars(stmt).first()
     return _to_step(row) if row else None
+
+
+def _to_api_key(row: ApiKeyRow) -> ApiKey:
+    return ApiKey(
+        id=row.id,
+        key_hash=row.key_hash,
+        client_id=row.client_id,
+        created_at=row.created_at,
+        revoked_at=row.revoked_at,
+    )
+
+
+def create_api_key(
+    session: Session, *, key_id: str, key_hash: str, client_id: str
+) -> None:
+    session.add(
+        ApiKeyRow(
+            id=key_id,
+            key_hash=key_hash,
+            client_id=client_id,
+            created_at=datetime.now(UTC),
+            revoked_at=None,
+        )
+    )
+
+
+def find_active_api_key_by_hash(
+    session: Session, key_hash: str
+) -> ApiKey | None:
+    stmt = select(ApiKeyRow).where(
+        ApiKeyRow.key_hash == key_hash,
+        ApiKeyRow.revoked_at.is_(None),
+    )
+    row = session.scalars(stmt).first()
+    return _to_api_key(row) if row else None
+
+
+def revoke_api_key(session: Session, key_id: str) -> bool:
+    row = session.get(ApiKeyRow, key_id)
+    if row is None or row.revoked_at is not None:
+        return False
+    row.revoked_at = datetime.now(UTC)
+    return True
+
+
+def list_api_keys(session: Session) -> list[ApiKey]:
+    stmt = select(ApiKeyRow).order_by(ApiKeyRow.created_at)
+    return [_to_api_key(row) for row in session.scalars(stmt).all()]
 
 
 def get_annotations(
