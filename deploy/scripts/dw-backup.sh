@@ -20,20 +20,33 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
     exit 1
 fi
 
-# Parse postgresql+psycopg://user:pass@host:port/dbname
-DB_USER=$(echo "$DATABASE_URL" | sed -E 's|^[^:]+://([^:]+):.*$|\1|')
-DB_PASS=$(echo "$DATABASE_URL" | sed -E 's|^[^:]+://[^:]+:([^@]+)@.*$|\1|')
-DB_HOST=$(echo "$DATABASE_URL" | sed -E 's|^.*@([^:]+):.*$|\1|')
-DB_PORT=$(echo "$DATABASE_URL" | sed -E 's|^.*:([0-9]+)/.*$|\1|')
-DB_NAME=$(echo "$DATABASE_URL" | sed -E 's|^.*/([^?]+).*$|\1|')
+# Parse DATABASE_URL via Python (urllib.parse handles URI-encoded chars
+# in user/password — sed regexes break on @ or : in credentials).
+# Output is one field per line: user, password, host, port, database.
+PARSED=$(python3 -c "
+from urllib.parse import urlparse
+import os
+url = os.environ['DATABASE_URL'].replace('postgresql+psycopg://', 'postgresql://')
+u = urlparse(url)
+print(u.username or '')
+print(u.password or '')
+print(u.hostname or '')
+print(u.port or 5432)
+print((u.path or '').lstrip('/'))
+")
+readarray -t pg_parts <<< "$PARSED"
+export PGUSER="${pg_parts[0]}"
+export PGPASSWORD="${pg_parts[1]}"
+export PGHOST="${pg_parts[2]}"
+export PGPORT="${pg_parts[3]}"
+export PGDATABASE="${pg_parts[4]}"
 
 TS=$(date -u +%Y%m%d-%H%M%SZ)
 OUT="$BACKUP_DIR/dw-$TS.sql.gz"
 
-PGPASSWORD="$DB_PASS" pg_dump \
-    -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" \
+# pg_dump picks up PG* env vars automatically; no creds on the command line.
+pg_dump \
     --no-owner --no-privileges --serializable-deferrable \
-    "$DB_NAME" \
   | gzip -9 > "$OUT"
 
 chmod 600 "$OUT"
@@ -50,20 +63,23 @@ fi
 
 echo "$(date -Iseconds): dw-backup local $OUT $(du -h "$OUT" | cut -f1)"
 
-# Off-box copy. Requires both env vars set (see /etc/derivation-web/env):
+# Off-box copy. Required for launch — local backups die with the VPS.
 #   OFFBOX_RSYNC_TARGET=root@<host>:/path/   (e.g. root@100.97.248.77:/var/dw-backups/)
 #   OFFBOX_RSYNC_KEY=/root/.ssh/<key>        (private key authorized on target)
-# A failure here exits non-zero so systemd surfaces it via journald —
-# silent off-box failures over weeks are exactly how disaster recovery
-# breaks when you finally need it.
-if [[ -n "${OFFBOX_RSYNC_TARGET:-}" && -f "${OFFBOX_RSYNC_KEY:-}" ]]; then
-    if rsync -a -e "ssh -i ${OFFBOX_RSYNC_KEY} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15" \
-            "$OUT" "$OFFBOX_RSYNC_TARGET"; then
-        echo "$(date -Iseconds): dw-backup offbox $OUT -> $OFFBOX_RSYNC_TARGET"
-    else
-        echo "$(date -Iseconds): dw-backup offbox FAILED to $OFFBOX_RSYNC_TARGET" >&2
-        exit 3
-    fi
+#
+# Missing config and rsync failure are BOTH treated as failures: silent
+# off-box loss for weeks is exactly how disaster recovery breaks when
+# you finally need it. To intentionally disable, set
+#   OFFBOX_RSYNC_DISABLED=1   (logs + exits 0).
+if [[ "${OFFBOX_RSYNC_DISABLED:-}" == "1" ]]; then
+    echo "$(date -Iseconds): dw-backup offbox DISABLED (OFFBOX_RSYNC_DISABLED=1)" >&2
+elif [[ -z "${OFFBOX_RSYNC_TARGET:-}" || -z "${OFFBOX_RSYNC_KEY:-}" || ! -f "${OFFBOX_RSYNC_KEY:-/dev/null}" ]]; then
+    echo "$(date -Iseconds): dw-backup offbox MISSING CONFIG — set OFFBOX_RSYNC_TARGET + OFFBOX_RSYNC_KEY in /etc/derivation-web/env, or set OFFBOX_RSYNC_DISABLED=1 to suppress this check" >&2
+    exit 4
+elif rsync -a -e "ssh -i ${OFFBOX_RSYNC_KEY} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15" \
+        "$OUT" "$OFFBOX_RSYNC_TARGET"; then
+    echo "$(date -Iseconds): dw-backup offbox $OUT -> $OFFBOX_RSYNC_TARGET"
 else
-    echo "$(date -Iseconds): dw-backup offbox SKIPPED (OFFBOX_RSYNC_TARGET / OFFBOX_RSYNC_KEY not set)" >&2
+    echo "$(date -Iseconds): dw-backup offbox FAILED to $OFFBOX_RSYNC_TARGET" >&2
+    exit 3
 fi

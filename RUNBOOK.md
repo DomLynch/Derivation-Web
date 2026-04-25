@@ -32,7 +32,7 @@ public ──HTTPS──▶ nginx (443) ──proxy──▶ uvicorn (100.96.74.
 - **API key file:** `/etc/derivation-web/researka.key` (root:root 0600)
 - **Backups:** `/var/backups/derivation-web/dw-*.sql.gz` (last 14 days, local) + `root@100.97.248.77:/var/dw-backups/` (Brain Backup VPS2 over Tailscale, accumulating)
 - **Cert:** `/etc/letsencrypt/live/dw.domlynch.com/`
-- **Timers:** `derivation-web-backup.timer` (02:11 daily), `certbot-dw.timer` (03:17 daily)
+- **Timers:** `dw-backup.timer` (02:11 daily), `certbot-dw.timer` (03:17 daily)
 
 ---
 
