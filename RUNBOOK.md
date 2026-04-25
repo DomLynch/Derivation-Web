@@ -30,7 +30,7 @@ public ──HTTPS──▶ nginx (443) ──proxy──▶ uvicorn (100.96.74.
 - **Service:** `derivation-web.service` (systemd)
 - **Env:** `/etc/derivation-web/env` (root:dw 0640) — DATABASE_URL, DW_MAX_ARTIFACT_BYTES
 - **API key file:** `/etc/derivation-web/researka.key` (root:root 0600)
-- **Backups:** `/var/backups/derivation-web/dw-*.sql.gz` (last 14 days)
+- **Backups:** `/var/backups/derivation-web/dw-*.sql.gz` (last 14 days, local) + `root@100.97.248.77:/var/dw-backups/` (Brain Backup VPS2 over Tailscale, accumulating)
 - **Cert:** `/etc/letsencrypt/live/dw.domlynch.com/`
 - **Timers:** `derivation-web-backup.timer` (02:11 daily), `certbot-dw.timer` (03:17 daily)
 
@@ -142,7 +142,11 @@ ssh -i ~/.ssh/binance_futures_tool root@49.12.7.18
 # Stop the service so writes don't race the restore
 systemctl stop derivation-web
 
-# Pick the most recent good backup
+# Pick the most recent good backup. Two locations:
+#   local (fast)            : /var/backups/derivation-web/
+#   off-box (Brain Backup)  : root@100.97.248.77:/var/dw-backups/   (Tailscale)
+# If the local dir is empty / corrupt, pull from off-box first:
+#   scp -i /root/.ssh/dw_backup_to_vps2 root@100.97.248.77:/var/dw-backups/dw-<TS>.sql.gz /var/backups/derivation-web/
 ls -lt /var/backups/derivation-web/ | head
 
 # Restore (drops + recreates the dw db; keep this surgical)
@@ -206,17 +210,34 @@ journalctl -u certbot-dw.service -n 20
 ---
 
 <a id="offbox-backups"></a>
-## Off-box backups (operator must wire)
+## Off-box backups (wired to Brain Backup VPS2 over Tailscale)
 
-`/var/backups/derivation-web/` is **on the same VPS as the DB** — disk
-failure or VPS loss = total loss. The backup script supports an off-box
-target. Pick one:
+Local copy lives in `/var/backups/derivation-web/` on Brain (same VPS
+as the DB — would die together). The off-box leg of `dw-backup.sh`
+rsyncs each new dump over Tailscale to:
 
-- **R2 / B2 / S3** — set `OFFBOX_S3_BUCKET=s3://...` in
-  `/etc/derivation-web/env`, install `aws` CLI, uncomment the rsync line
-  in `deploy/scripts/dw-backup.sh`.
-- **Hetzner Storage Box / another VPS** — set `OFFBOX_TARGET=user@host:/path/`,
-  drop an SSH key at `/root/.ssh/offbox`, uncomment the rsync line.
+```
+root@100.97.248.77:/var/dw-backups/   (Brain Backup, Hetzner VPS2)
+```
 
-Verify weekly: pull a backup off-box and restore it to a scratch DB
-(don't trust an unverified backup).
+Wired via two env vars on Brain (`/etc/derivation-web/env`):
+- `OFFBOX_RSYNC_TARGET=root@100.97.248.77:/var/dw-backups/`
+- `OFFBOX_RSYNC_KEY=/root/.ssh/dw_backup_to_vps2`
+
+A failed off-box step exits the dw-backup.service with status 3 —
+visible via `systemctl status dw-backup.service` and journald.
+Watch for that on the next morning's check.
+
+**Verify weekly** (don't trust an unverified backup):
+```bash
+ssh -i ~/.ssh/brain_backup_hetzner root@100.97.248.77 \
+    'ls -lt /var/dw-backups/ | head -5'
+# Pull yesterday's dump back to your laptop and try a real restore
+# against a scratch local Postgres.
+```
+
+If Brain Backup itself ever needs replacement, the only thing to
+re-create is the SSH authorization: copy
+`/root/.ssh/dw_backup_to_vps2.pub` from Brain into the new target's
+`~/.ssh/authorized_keys`, update `OFFBOX_RSYNC_TARGET` in env, and
+run `dw-backup.service` once to verify.
