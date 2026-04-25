@@ -170,11 +170,21 @@ def find_active_api_key_by_hash(
 
 
 def revoke_api_key(session: Session, key_id: str) -> bool:
-    row = session.get(ApiKeyRow, key_id)
-    if row is None or row.revoked_at is not None:
-        return False
-    row.revoked_at = datetime.now(UTC)
-    return True
+    """Atomically revoke an active key.
+
+    Single UPDATE conditional on `revoked_at IS NULL`, returns whether
+    a row was changed. Two concurrent revoke calls cannot both succeed
+    (the second sees rowcount=0 and returns False), which preserves
+    audit truth: there is exactly one revoked_at timestamp.
+    """
+    from sqlalchemy import CursorResult, update
+
+    result: CursorResult[ApiKeyRow] = session.execute(  # type: ignore[assignment]
+        update(ApiKeyRow)
+        .where(ApiKeyRow.id == key_id, ApiKeyRow.revoked_at.is_(None))
+        .values(revoked_at=datetime.now(UTC))
+    )
+    return bool(result.rowcount)
 
 
 def list_api_keys(session: Session) -> list[ApiKey]:

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily backup of derivation-web Postgres DB
+
+[Timer]
+OnCalendar=*-*-* 02:11:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

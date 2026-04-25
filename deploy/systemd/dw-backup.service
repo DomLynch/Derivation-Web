@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily Postgres backup for derivation-web
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/derivation-web/env
+ExecStart=/opt/derivation-web/deploy/scripts/dw-backup.sh

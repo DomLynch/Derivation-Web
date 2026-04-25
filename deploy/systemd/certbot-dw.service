@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew dw.domlynch.com Let's Encrypt cert
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Stale temp_checkpoint from past failed runs breaks recovery_routine.
+# Wipe it before invoking certbot; -f tolerates non-existence.
+ExecStartPre=-/bin/rm -rf /var/lib/letsencrypt/temp_checkpoint
+ExecStart=/usr/bin/certbot renew --cert-name dw.domlynch.com --quiet --post-hook "/usr/bin/systemctl reload nginx"

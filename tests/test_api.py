@@ -19,7 +19,15 @@ def _now() -> str:
 def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    body = r.json()
+    assert body["status"] == "ok"
+    assert body["db"] is True
+
+
+def test_request_id_header_set(client):
+    r = client.get("/health")
+    assert "x-request-id" in r.headers
+    assert len(r.headers["x-request-id"]) == 12
 
 
 def test_views_render(client):

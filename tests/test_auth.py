@@ -224,6 +224,27 @@ def test_revoke_idempotent(app, issued_key):
         assert repo.revoke_api_key(s, key_id) is False
 
 
+def test_revoke_atomic_two_concurrent(app, issued_key):
+    """Two concurrent revoke calls: exactly one wins, the other returns False.
+
+    Models a TOCTOU race: both readers see revoked_at=None, then both
+    try to UPDATE. With the atomic WHERE revoked_at IS NULL guard,
+    only the first UPDATE matches a row.
+    """
+    _, key_id = issued_key
+    from derivation_web.db import repo
+    from derivation_web.db.session import make_session
+
+    with make_session() as s1, make_session() as s2:
+        first = repo.revoke_api_key(s1, key_id)
+        s1.commit()
+        second = repo.revoke_api_key(s2, key_id)
+        s2.commit()
+    assert {first, second} == {True, False}, (
+        f"expected exactly one True and one False, got {first=} {second=}"
+    )
+
+
 # -------- read endpoints stay open --------
 
 def test_health_open(unauthed_client):

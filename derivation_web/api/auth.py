@@ -16,7 +16,7 @@ import hashlib
 import secrets
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from derivation_web.db import repo
@@ -60,6 +60,7 @@ def _looks_like_dw_key(key: str) -> bool:
 
 
 def require_api_key(
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
     authorization: Annotated[str | None, Header()] = None,
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
@@ -68,6 +69,7 @@ def require_api_key(
 
     Raises 401 if header is missing, malformed, unknown, or revoked. The
     same message is used for malformed and unknown to avoid an oracle.
+    Stashes (client_id, key_id) on request.state for the audit middleware.
     """
     key = _extract_key(authorization, x_api_key)
     if not key:
@@ -90,4 +92,6 @@ def require_api_key(
             detail="invalid or revoked API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    request.state.client_id = record.client_id
+    request.state.key_id = record.id
     return record.client_id

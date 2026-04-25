@@ -1,0 +1,21 @@
+[Unit]
+Description=Derivation Web (provenance substrate)
+After=network-online.target postgresql.service tailscaled.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=dw
+Group=dw
+WorkingDirectory=/opt/derivation-web
+EnvironmentFile=/etc/derivation-web/env
+# 4 workers for the 16-CPU box. Increase as load grows.
+ExecStart=/opt/derivation-web/.venv/bin/uvicorn derivation_web.api.app:app --host 100.96.74.1 --port 8080 --proxy-headers --workers 4 --no-access-log
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
