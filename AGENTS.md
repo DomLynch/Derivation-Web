@@ -63,5 +63,15 @@ uvicorn derivation_web.api.app:app --reload --port 8080
 pytest -q        # core tests always; API tests need DATABASE_URL
 ```
 
+## Pre-push checks (CI is intentional opt-out)
+Run all three before every push. No GitHub Actions; no `.github/workflows/`.
+```
+ruff check . && mypy derivation_web && pytest -q
+```
+
 ## Deploy
-Not applicable in v1. Local only.
+v1 runs on VPS Brain (`100.96.74.1:8080`, Tailscale-only, no public DNS,
+no SSL — bound to Tailscale IP as the blast-fence until API-key auth ships).
+- Service: `systemctl {status,restart,stop} derivation-web`
+- Pull + restart pattern (as root on VPS):
+  `cd /opt/derivation-web && git pull --ff-only && chown -R dw:dw . && chown -R root:root .git && systemctl restart derivation-web`
