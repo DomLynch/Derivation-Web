@@ -22,9 +22,19 @@ jobs:
           POSTGRES_USER: dw
           POSTGRES_PASSWORD: dw
           POSTGRES_DB: dw
+          # Trust auth in the ephemeral CI Postgres. The probe step
+          # confirms dw/dw/dw via libpq, but psycopg via SQLAlchemy
+          # was hitting password rejection on the SAME service from
+          # the SAME runner — likely a SCRAM negotiation quirk between
+          # the runner's psycopg build and postgres:16. The container
+          # only listens on the runner's loopback (15432) for the
+          # duration of one job; trust is safe here. Production
+          # Postgres on Brain still uses scram-sha-256 with a real
+          # password.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
-          # Use a non-default host port to avoid any collision with
-          # postgres pre-installed on the runner image.
+          # Non-default host port to avoid any collision with postgres
+          # pre-installed on the runner image.
           - 15432:5432
         options: >-
           --health-cmd "pg_isready"
