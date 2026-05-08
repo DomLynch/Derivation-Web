@@ -83,7 +83,7 @@ ruff check . && mypy derivation_web && pytest -q
 
 ## Deploy
 Runs on VPS Brain (`100.96.74.1:8080`, uvicorn bound to Tailscale interface).
-Public reachability: `https://dw.domlynch.com` via nginx + Let's Encrypt
+Public reachability: `https://provenance.researka.org` via nginx + Let's Encrypt
 once configured.
 - Service: `systemctl {status,restart,stop} derivation-web`
 - Pull + restart pattern (as root on VPS):

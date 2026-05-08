@@ -61,7 +61,7 @@ Passive ledger, 3-entity schema, HTMX+Jinja, inline Postgres bodies, backward wa
 - Auth dep adds 1× SHA-256 + 1× indexed DB lookup per write — sub-millisecond. 61 tests in 1.1s on local Postgres.
 
 ## Next validation step
-Researka points its client at `https://dw.domlynch.com` with the issued key in `Authorization: Bearer …` and starts POSTing.
+Researka points its client at `https://provenance.researka.org` with the issued key in `Authorization: Bearer …` and starts POSTing.
 
 ---
 
@@ -72,7 +72,7 @@ Researka points its client at `https://dw.domlynch.com` with the issued key in `
 | MacBook  | dev only, gates via `make lint typecheck test` | green                   |
 | GitHub   | `DomLynch/Derivation-Web` private        | synced (manual pushes)  |
 | VPS      | systemd `derivation-web` → 100.96.74.1:8080  | active                  |
-| Public   | `https://dw.domlynch.com` (nginx + Let's Encrypt) | live, HTTPS-only |
+| Public   | `https://provenance.researka.org` (nginx + Let's Encrypt) | live, HTTPS-only |
 
 **Auth gate** is on `POST /api/{actors,artifacts,steps}`. Reads remain open.
 

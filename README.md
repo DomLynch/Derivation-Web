@@ -26,7 +26,7 @@ materialization; you can wire your own.
 
 | Slice | State |
 |---|---|
-| v1 vertical slice (source → claim → step → chain → challenge → revise) | ✅ live at `https://dw.domlynch.com` |
+| v1 vertical slice (source → claim → step → chain → challenge → revise) | ✅ live at `https://provenance.researka.org` |
 | API-key auth | ✅ |
 | Ed25519 step signing (optional, server-verified) | ✅ |
 | Audit log + per-request `X-Request-ID` | ✅ |

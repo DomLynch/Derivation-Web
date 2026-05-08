@@ -31,7 +31,7 @@ public ──HTTPS──▶ nginx (443) ──proxy──▶ uvicorn (100.96.74.
 - **Env:** `/etc/derivation-web/env` (root:dw 0640) — DATABASE_URL, DW_MAX_ARTIFACT_BYTES
 - **API key file:** `/etc/derivation-web/researka.key` (root:root 0600)
 - **Backups:** `/var/backups/derivation-web/dw-*.sql.gz` (last 14 days, local) + `root@100.97.248.77:/var/dw-backups/` (Brain Backup VPS2 over Tailscale, accumulating)
-- **Cert:** `/etc/letsencrypt/live/dw.domlynch.com/`
+- **Cert:** `/etc/letsencrypt/live/dw.domlynch.com/` (Let's Encrypt does not rename lineages on `--expand`; cert covers both names)
 - **Timers:** `dw-backup.timer` (02:11 daily), `certbot-dw.timer` (03:17 daily)
 
 ---
@@ -44,7 +44,7 @@ ssh -i ~/.ssh/binance_futures_tool root@49.12.7.18
 
 # Health
 systemctl status derivation-web nginx postgresql
-curl -s https://dw.domlynch.com/health   # {"status":"ok","db":true}
+curl -s https://provenance.researka.org/health   # {"status":"ok","db":true}
 
 # Audit log (structured JSON per request)
 journalctl -u derivation-web -f --no-pager | grep '"evt":"http"'
@@ -62,7 +62,7 @@ $PY -m derivation_web.tools.issue_key revoke --key-id <id>
 <a id="incident-site-is-down"></a>
 ## Incident: site is down / 5xx
 
-1. `curl -sf https://dw.domlynch.com/health` — does it 200?
+1. `curl -sf https://provenance.researka.org/health` — does it 200?
 2. If no DNS / connection refused: `systemctl status nginx`
 3. If 502 from nginx: `systemctl status derivation-web` and look at
    `journalctl -u derivation-web -n 100`
@@ -121,7 +121,7 @@ git log --oneline -5                       # find last good SHA
 git reset --hard <last-good-sha>           # ⚠️ destructive; alternative: git revert
 chown -R dw:dw . && chown -R root:root .git
 systemctl restart derivation-web
-curl -sf https://dw.domlynch.com/health
+curl -sf https://provenance.researka.org/health
 ```
 
 If a migration was the bad part:
@@ -158,7 +158,7 @@ gunzip -c /var/backups/derivation-web/dw-<TS>.sql.gz \
   | PGPASSWORD="$DB_PASS" psql -h 127.0.0.1 -U dw -d dw
 
 systemctl start derivation-web
-curl -sf https://dw.domlynch.com/health
+curl -sf https://provenance.researka.org/health
 ```
 
 ---
@@ -181,7 +181,7 @@ chown -R dw:dw . && chown -R root:root .git
 set -a; . /etc/derivation-web/env; set +a
 /opt/derivation-web/.venv/bin/alembic upgrade head
 systemctl restart derivation-web
-curl -sf https://dw.domlynch.com/health
+curl -sf https://provenance.researka.org/health
 ```
 
 If systemd unit file or nginx config changed:
@@ -189,7 +189,7 @@ If systemd unit file or nginx config changed:
 cp /opt/derivation-web/deploy/systemd/derivation-web.service /etc/systemd/system/
 systemctl daemon-reload && systemctl restart derivation-web
 # nginx vhost or rate-limit:
-cp /opt/derivation-web/deploy/nginx/dw.domlynch.com.conf /etc/nginx/sites-available/
+cp /opt/derivation-web/deploy/nginx/provenance.researka.org.conf /etc/nginx/sites-available/
 cp /opt/derivation-web/deploy/nginx/dw-rate-limit.conf /etc/nginx/conf.d/
 nginx -t && systemctl reload nginx
 ```

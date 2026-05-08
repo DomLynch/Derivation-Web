@@ -36,7 +36,7 @@ Recommended: same VPS as DW (Brain) for now. Two reasons:
 - Direct Postgres access for the cursor query (no DW endpoint change required).
 - Localhost write-back to DW (no nginx hop).
 
-Alternative: any VPS that can reach `dw.domlynch.com` and OSF. Migration is
+Alternative: any VPS that can reach `provenance.researka.org` and OSF. Migration is
 trivial — change a connection string + a URL.
 
 ## Prerequisite: small DW v1.1 schema additions (the DW agent does this)
@@ -93,7 +93,7 @@ step. Restart-safe, idempotent, crash-safe.
 
 For each `claim_id` from the query:
 
-1. `GET https://dw.domlynch.com/api/artifacts/{claim_id}` — fetch the body
+1. `GET https://provenance.researka.org/api/artifacts/{claim_id}` — fetch the body
 2. Build the OSF payload (title from artifact metadata, body_text as content,
    any bundle URL referenced in metadata gets attached)
 3. `POST https://api.osf.io/v2/nodes/` (or whatever endpoint OSF currently
@@ -108,7 +108,7 @@ retry next run because the cursor query still picks it up.
 Two POSTs to DW:
 
 ```http
-POST https://dw.domlynch.com/api/artifacts
+POST https://provenance.researka.org/api/artifacts
 Authorization: Bearer <publisher's DW key>
 {
   "kind": "registry_record",
@@ -123,7 +123,7 @@ Authorization: Bearer <publisher's DW key>
 }
 → {"id": "art_<reg_record_id>", ...}
 
-POST https://dw.domlynch.com/api/steps
+POST https://provenance.researka.org/api/steps
 {
   "step_type": "register",
   "input_artifact_ids": [],
@@ -162,7 +162,7 @@ OSF API token (one-time, from your OSF account settings):
 
 Both files referenced from `/etc/osf-publisher/env`:
 ```
-DW_BASE_URL=https://dw.domlynch.com
+DW_BASE_URL=https://provenance.researka.org
 DW_API_KEY_PATH=/etc/osf-publisher/dw_api.key
 DW_DB_URL=postgresql+psycopg://osf_reader:<pw>@127.0.0.1:5432/dw   # read-only role
 OSF_BASE_URL=https://api.osf.io/v2
@@ -348,7 +348,7 @@ WantedBy=timers.target
 3. Verify: `journalctl -u osf-publisher -n 30`
 4. Verify chain extended:
    ```bash
-   curl https://dw.domlynch.com/api/artifacts/<claim_id>/chain | jq '.nodes[] | select(.producing_step.step_type=="register" or .artifact.kind=="registry_record")'
+   curl https://provenance.researka.org/api/artifacts/<claim_id>/chain | jq '.nodes[] | select(.producing_step.step_type=="register" or .artifact.kind=="registry_record")'
    ```
    Should show the new registry_record artifact and the `register` step.
 

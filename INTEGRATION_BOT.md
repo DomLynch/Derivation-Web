@@ -28,7 +28,7 @@ For each draft paper the bot generates:
 
 ## Endpoints
 
-Base URL: `https://dw.domlynch.com` (HTTPS only — HTTP redirects)
+Base URL: `https://provenance.researka.org` (HTTPS only — HTTP redirects)
 Auth: `Authorization: Bearer <key>` on every POST. `X-API-Key: <key>`
 also accepted. Reads (GET) require no key.
 
@@ -86,7 +86,7 @@ logger = logging.getLogger(__name__)
 
 class DerivationWeb:
     ACTOR_ID = "research-agent-bot:v1"
-    BASE_URL = "https://dw.domlynch.com"
+    BASE_URL = "https://provenance.researka.org"
 
     def __init__(self, key_path: str = "/etc/research-agent-bot/dw_api.key"):
         self._headers = {
@@ -231,7 +231,7 @@ of (sources, prompt, output) is provable. Don't put secrets here.
 ```bash
 # Trigger one real synthesis end-to-end. Capture the claim_id.
 # Then verify the chain:
-curl https://dw.domlynch.com/api/artifacts/<claim_id>/chain | jq
+curl https://provenance.researka.org/api/artifacts/<claim_id>/chain | jq
 
 # Expected shape:
 # - root_id == <claim_id>

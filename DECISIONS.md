@@ -133,6 +133,16 @@ Conflating them (e.g. binding a key to an actor_id) would make Researka unable t
 - nginx-level basic auth — can't revoke programmatically, mixes layers.
 **Revisit if:** rate limiting becomes urgent, or multi-tenant isolation is needed.
 
+## 2026-05-08 — Canonical hostname → `provenance.researka.org`
+**Decision:** `provenance.researka.org` is the canonical public URL. `dw.domlynch.com` stays as a permanent alias (same nginx vhost, same cert via Let's Encrypt `--expand`, no redirect — both names always resolve, both serve identically).
+**Why:** "DW" doesn't communicate to outside readers. "provenance" tells anyone what the substrate does on first read, and putting it under researka.org puts the public face under the consumer-zero brand. No-redirect alias means existing clients (any cached `dw.domlynch.com` URL anywhere) keep working forever.
+**File on disk:** Lineage stays at `/etc/letsencrypt/live/dw.domlynch.com/` because Let's Encrypt does not rename lineages on `--expand`. Cert covers both names. nginx vhost file renamed to `provenance.researka.org.conf` for clarity.
+**Alternatives rejected:**
+- 301 redirect old → new — breaks any in-flight request that didn't anticipate the redirect; aliases avoid that class of bug.
+- Sunset `dw.domlynch.com` — pointless cost (zero downside to keeping it forever).
+- New cert lineage — unnecessary; `--expand` reuses the existing one.
+**Revisit:** never expected.
+
 ## 2026-04-25 — Public DNS via nginx + Let's Encrypt, bind unchanged
 **Decision:** Front DW with nginx at `dw.domlynch.com`. nginx upstream proxies to `http://100.96.74.1:8080`. Let's Encrypt issues a cert via certbot (HTTP-01). HTTP redirects to HTTPS.
 **Why:** Standard pattern on Brain (matches mcp.domlynch.com). Keeping uvicorn bound to Tailscale IP rather than `127.0.0.1` lets us verify post-deploy that even if nginx is removed, no public listener remains — extra defense.
