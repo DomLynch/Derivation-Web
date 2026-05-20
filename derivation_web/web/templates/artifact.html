@@ -54,5 +54,21 @@
 </section>
 {% endif %}
 
+{% if registrations %}
+<section>
+  <h3>Registrations ({{ registrations|length }})</h3>
+  {% for a, s in registrations %}
+    <div class="node" data-kind="registry_record">
+      <div class="kind">
+        registry_record · <a href="/artifacts/{{ a.id }}">{{ a.id }}</a>
+        {% if s.method.registry %} · <strong>{{ s.method.registry }}</strong>{% endif %}
+        {% if s.method.doi %} · doi:{{ s.method.doi }}{% endif %}
+      </div>
+      {% if a.body_text %}<pre>{{ a.body_text }}</pre>{% endif %}
+    </div>
+  {% endfor %}
+</section>
+{% endif %}
+
 <p><a href="/artifacts/{{ artifact.id }}/chain">view full chain →</a></p>
 {% endblock %}

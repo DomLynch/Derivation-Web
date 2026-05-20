@@ -31,7 +31,7 @@ def view_artifact(
     if artifact is None:
         raise HTTPException(404)
     producing = repo.get_producing_step(session, artifact_id)
-    challenges, revisions = repo.get_annotations(session, artifact_id)
+    challenges, revisions, registrations = repo.get_annotations(session, artifact_id)
     actor = repo.get_actor(session, artifact.actor_id)
     templates = request.app.state.templates
     return templates.TemplateResponse(  # type: ignore[no-any-return]
@@ -43,6 +43,7 @@ def view_artifact(
             "producing": producing,
             "challenges": challenges,
             "revisions": revisions,
+            "registrations": registrations,
         },
     )
 
@@ -60,7 +61,9 @@ def view_chain(
     )
     rendered = []
     for node in nodes:
-        challenges, revisions = repo.get_annotations(session, node.artifact.id)
+        challenges, revisions, registrations = repo.get_annotations(
+            session, node.artifact.id
+        )
         rendered.append(
             {
                 "artifact": node.artifact,
@@ -68,6 +71,7 @@ def view_chain(
                 "depth": node.depth,
                 "challenges": challenges,
                 "revisions": revisions,
+                "registrations": registrations,
             }
         )
     templates = request.app.state.templates
