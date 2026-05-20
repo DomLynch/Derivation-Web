@@ -1,5 +1,17 @@
 # DECISION JOURNAL
 
+## 2026-05-20 — Strict main protection: PR + required CI, no admin bypass
+**Decision:** `main` is strict-mode protected. Code lands through PRs with the required `lint-type-test` status check; administrator bypass is disabled.
+**Why:** DW is auth-bearing public infrastructure. A direct push can move production source before CI reports. PR-first makes CI an enforcement gate, not just an after-the-fact alarm.
+**Alternatives rejected:**
+- Solo-dev direct pushes to `main` — faster, but contradicts the stated "authoritative gate" contract.
+
+## 2026-05-20 — OSF registration receipt types are accepted by DW
+**Decision:** Add `registry_record` artifact kind and `register` step type. `register` is an annotation step: it requires `target_artifact_id`, may have empty inputs, and appears in the chain response under `registrations`.
+**Why:** The OSF publisher stays outside DW, but DW must accept the publisher's registry receipt without schema changes later. This keeps DW passive while making DOI provenance first-class.
+**Alternatives rejected:**
+- Store registry receipts as generic `claim` or loose metadata — hides registry semantics and makes chain inspection weaker.
+
 ## 2026-05-20 — Artifact IDs use kind as prefix (`claim_<hex>`, etc.); `art_*` stays valid forever
 **Decision:** New artifact IDs are minted with the artifact's `kind` as the prefix: `source_<16hex>`, `claim_<16hex>`, `challenge_<16hex>`, `revision_<16hex>`. Steps remain `step_<16hex>`. API keys remain `key_<12hex>`. Legacy `art_<16hex>` IDs created before this date continue to resolve by exact primary-key lookup; they are not migrated, rewritten, normalized, or aliased.
 **Why:** DW IDs travel outside the system — into Researka's DB (`dw_artifact_id`), into citations on published papers, into URLs that show up in news articles and verification flows. `art_<hex>` requires a reader to know what "art" stands for before they can interpret the link. Self-typing the prefix (`claim_*` says "this is a claim") removes that lookup step for everyone downstream. GitHub (`commit/<sha>`, `pull/<num>`), DOI (registrant-routed), and arXiv (year-coded) all do the same: when IDs travel, the format teaches the reader.

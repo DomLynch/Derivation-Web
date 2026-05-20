@@ -20,6 +20,7 @@ class ArtifactKind(StrEnum):
     CLAIM = "claim"
     CHALLENGE = "challenge"
     REVISION = "revision"
+    REGISTRY_RECORD = "registry_record"
 
 
 class ActorKind(StrEnum):
@@ -38,10 +39,11 @@ class StepType(StrEnum):
     COMPARE = "compare"
     REVISE = "revise"
     CHALLENGE = "challenge"
+    REGISTER = "register"
 
 
 ANNOTATION_STEP_TYPES: frozenset[StepType] = frozenset(
-    {StepType.CHALLENGE, StepType.REVISE}
+    {StepType.CHALLENGE, StepType.REVISE, StepType.REGISTER}
 )
 
 

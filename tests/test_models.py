@@ -97,3 +97,37 @@ def test_challenge_inputs_may_be_empty():
         actor_id="a1",
         created_at=datetime.now(UTC),
     )
+
+
+def test_register_requires_target():
+    with pytest.raises(ValidationError) as exc:
+        StepCreate(
+            step_type=StepType.REGISTER,
+            input_artifact_ids=[],
+            output_artifact_id="registry_record_1",
+            target_artifact_id=None,
+            actor_id="osf-publisher:v1",
+            created_at=datetime.now(UTC),
+        )
+    assert "target_artifact_id" in str(exc.value)
+
+
+def test_register_inputs_may_be_empty():
+    StepCreate(
+        step_type=StepType.REGISTER,
+        input_artifact_ids=[],
+        output_artifact_id="registry_record_1",
+        target_artifact_id="claim_1",
+        actor_id="osf-publisher:v1",
+        method={"registry": "osf", "doi": "10.17605/abc"},
+        created_at=datetime.now(UTC),
+    )
+
+
+def test_registry_record_artifact_kind_accepted():
+    ArtifactCreate(
+        kind=ArtifactKind.REGISTRY_RECORD,
+        content_type="application/json",
+        body_text='{"registry":"osf","doi":"10.17605/abc"}',
+        actor_id="osf-publisher:v1",
+    )

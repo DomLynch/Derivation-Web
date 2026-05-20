@@ -12,7 +12,7 @@ One vertical slice end-to-end:
 `POST source → POST claim → POST step(summarize) → GET chain → POST challenge → POST revision → GET chain`
 
 ### In
-- 3-entity domain: `actors`, `artifacts` (kind: `source|claim|challenge|revision`), `steps` (typed edges, one per produced artifact, with explicit `target_artifact_id` for `challenge`/`revise` so evidence inputs are never confused with the targeted claim)
+- 3-entity domain: `actors`, `artifacts` (kind: `source|claim|challenge|revision|registry_record`), `steps` (typed edges, one per produced artifact, with explicit `target_artifact_id` for `challenge`/`revise`/`register` so evidence inputs are never confused with the targeted claim)
 - Content hashing: SHA-256 over sorted-key canonical JSON
 - Ed25519 signatures (env-seeded, single keypair per actor)
 - Inline Postgres artifact bodies (10MB cap via Pydantic)
@@ -74,8 +74,11 @@ Two enforcement layers:
 2. **Local pre-push hook** (`.githooks/pre-push`) — runs the same gates
    on the developer's machine before the push leaves the laptop, catching
    regressions in seconds rather than waiting for CI. Activate in a fresh
-   clone with: `git config core.hooksPath .githooks`. Bypassable with
-   `git push --no-verify` — but Actions still gates the merge.
+   clone with: `git config core.hooksPath .githooks`.
+
+`main` is strict-mode protected: code lands through PR + required
+`lint-type-test`; administrator bypass is disabled. Direct pushes to `main`
+are policy violations even if GitHub ever permits one.
 
 Manual run (same commands either layer issues):
 ```

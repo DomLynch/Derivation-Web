@@ -14,13 +14,16 @@
       <pre>{{ n.artifact.body_text[:400] }}{% if n.artifact.body_text|length > 400 %}…{% endif %}</pre>
     {% endif %}
     <div class="hash">sha256 {{ n.artifact.content_hash[:16] }}…</div>
-    {% if n.challenges or n.revisions %}
+    {% if n.challenges or n.revisions or n.registrations %}
       <div class="annotations">
         {% if n.challenges %}
           <div>⚠ {{ n.challenges|length }} challenge{{ 's' if n.challenges|length != 1 else '' }}: {% for a, s in n.challenges %}<a href="/artifacts/{{ a.id }}">{{ a.id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
         {% endif %}
         {% if n.revisions %}
           <div>↻ {{ n.revisions|length }} revision{{ 's' if n.revisions|length != 1 else '' }}: {% for a, s in n.revisions %}<a href="/artifacts/{{ a.id }}">{{ a.id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        {% endif %}
+        {% if n.registrations %}
+          <div>★ {{ n.registrations|length }} registration{{ 's' if n.registrations|length != 1 else '' }}: {% for a, s in n.registrations %}<a href="/artifacts/{{ a.id }}">{% if s.method.doi %}{{ s.method.doi }}{% else %}{{ a.id }}{% endif %}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
         {% endif %}
       </div>
     {% endif %}

@@ -203,7 +203,9 @@ def get_chain(artifact_id: str, session: SessionDep) -> dict[str, Any]:
 
     out: list[dict[str, Any]] = []
     for node in nodes:
-        challenges, revisions = repo.get_annotations(session, node.artifact.id)
+        challenges, revisions, registrations = repo.get_annotations(
+            session, node.artifact.id
+        )
         out.append(
             {
                 "artifact": node.artifact.model_dump(mode="json"),
@@ -226,6 +228,13 @@ def get_chain(artifact_id: str, session: SessionDep) -> dict[str, Any]:
                         "step": s.model_dump(mode="json"),
                     }
                     for a, s in revisions
+                ],
+                "registrations": [
+                    {
+                        "artifact": a.model_dump(mode="json"),
+                        "step": s.model_dump(mode="json"),
+                    }
+                    for a, s in registrations
                 ],
             }
         )

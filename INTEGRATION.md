@@ -93,9 +93,10 @@ POST /api/artifacts
 → 201 { "id": "source_<hex>", "content_hash": "<sha256 hex>", ... }
 ```
 
-- `kind`: `source | claim | challenge | revision`
+- `kind`: `source | claim | challenge | revision | registry_record`
 - **ID format:** the returned `id` is prefixed with the artifact's kind:
-  `source_<hex>`, `claim_<hex>`, `challenge_<hex>`, `revision_<hex>`.
+  `source_<hex>`, `claim_<hex>`, `challenge_<hex>`, `revision_<hex>`,
+  `registry_record_<hex>`.
   Reading an ID tells you what it points to without a lookup.
 - **Contract:** IDs are opaque stable tokens. Store and transmit the exact
   string DW returns. The prefix is a human-readable type hint; DW does not
@@ -142,7 +143,7 @@ POST /api/steps
 → 201 { "id": "step_<hex>", "step_hash": "<sha256 hex>", ... }
 ```
 
-- `step_type`: `summarize | extract | infer | calculate | classify | compare | revise | challenge`
+- `step_type`: `summarize | extract | infer | calculate | classify | compare | revise | challenge | register`
 - **`created_at` is client-supplied** (timezone-aware ISO 8601). DW accepts
   any past timestamp and up to 60s of clock skew into the future. Making
   this client-stable is what allows signatures to round-trip: the client
@@ -155,13 +156,13 @@ POST /api/steps
 - If `signature_b64` is set, the actor must have a `pubkey_ed25519_b64` on
   file. Signature must verify against `step_hash` (UTF-8 string).
 
-### Inputs vs target: challenges and revisions
+### Inputs vs target: annotations
 
-For `challenge` and `revise` steps:
-- `target_artifact_id` — **required**. The artifact being challenged /
-  revised. This is the explicit semantic edge.
+For `challenge`, `revise`, and `register` steps:
+- `target_artifact_id` — **required**. The artifact being challenged,
+  revised, or registered. This is the explicit semantic edge.
 - `input_artifact_ids` — **evidence only**. May be empty. Artifacts that
-  justify the challenge / revision (e.g. contradicting sources).
+  justify the annotation (e.g. contradicting sources).
 
 For all other step types (`summarize`, `extract`, `infer`, `calculate`,
 `classify`, `compare`):
@@ -171,7 +172,7 @@ For all other step types (`summarize`, `extract`, `infer`, `calculate`,
 
 This separation fixes the obvious trap: a challenge citing evidence must
 not accidentally mark that evidence as "challenged." Only the explicit
-`target_artifact_id` is challenged.
+`target_artifact_id` is annotated.
 
 ---
 
@@ -225,7 +226,8 @@ Chain response shape:
       "producing_step": { ... } | null,
       "depth": 0,
       "challenges": [{ "artifact": {...}, "step": {...} }, ...],
-      "revisions":  [{ "artifact": {...}, "step": {...} }, ...]
+      "revisions":  [{ "artifact": {...}, "step": {...} }, ...],
+      "registrations": [{ "artifact": {...}, "step": {...} }, ...]
     }
     // depth 1..N follow
   ]

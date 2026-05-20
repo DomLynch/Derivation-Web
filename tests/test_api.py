@@ -250,6 +250,7 @@ def test_artifact_id_uses_kind_as_prefix(client):
         ("claim", "claim body"),
         ("challenge", "challenge body"),
         ("revision", "revision body"),
+        ("registry_record", "registry body"),
     ]
     for kind, body in cases:
         r = client.post(
@@ -582,3 +583,80 @@ def test_artifact_rejects_both_bodies_at_api_layer(client):
     )
     assert r.status_code == 422
     assert "exactly one" in r.text
+
+
+def test_register_step_surfaces_in_chain_as_registration(client):
+    client.post(
+        "/api/actors", json={"id": "researka:v2", "kind": "agent", "name": "Researka"}
+    )
+    client.post(
+        "/api/actors",
+        json={"id": "osf-publisher:v1", "kind": "system", "name": "OSF publisher"},
+    )
+
+    src = client.post(
+        "/api/artifacts",
+        json={
+            "kind": "source",
+            "content_type": "text/plain",
+            "body_text": "input doc",
+            "actor_id": "researka:v2",
+        },
+    ).json()
+    claim = client.post(
+        "/api/artifacts",
+        json={
+            "kind": "claim",
+            "content_type": "text/plain",
+            "body_text": "synthesized claim",
+            "actor_id": "researka:v2",
+        },
+    ).json()
+    r = client.post(
+        "/api/steps",
+        json={
+            "step_type": "infer",
+            "input_artifact_ids": [src["id"]],
+            "output_artifact_id": claim["id"],
+            "actor_id": "researka:v2",
+            "method": {},
+            "created_at": _now(),
+        },
+    )
+    assert r.status_code == 201, r.text
+
+    registry = client.post(
+        "/api/artifacts",
+        json={
+            "kind": "registry_record",
+            "content_type": "application/json",
+            "body_text": json.dumps(
+                {"registry": "osf", "doi": "10.17605/abc"},
+                separators=(",", ":"),
+            ),
+            "actor_id": "osf-publisher:v1",
+        },
+    ).json()
+    assert registry["id"].startswith("registry_record_")
+
+    r = client.post(
+        "/api/steps",
+        json={
+            "step_type": "register",
+            "input_artifact_ids": [],
+            "output_artifact_id": registry["id"],
+            "target_artifact_id": claim["id"],
+            "actor_id": "osf-publisher:v1",
+            "method": {"registry": "osf", "doi": "10.17605/abc"},
+            "created_at": _now(),
+        },
+    )
+    assert r.status_code == 201, r.text
+
+    root = client.get(f"/api/artifacts/{claim['id']}/chain").json()["nodes"][0]
+    assert root["artifact"]["id"] == claim["id"]
+    assert root["challenges"] == []
+    assert root["revisions"] == []
+    assert len(root["registrations"]) == 1
+    assert root["registrations"][0]["artifact"]["id"] == registry["id"]
+    assert root["registrations"][0]["step"]["method"]["doi"] == "10.17605/abc"

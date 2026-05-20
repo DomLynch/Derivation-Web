@@ -194,11 +194,15 @@ def list_api_keys(session: Session) -> list[ApiKey]:
 
 def get_annotations(
     session: Session, artifact_id: str
-) -> tuple[list[tuple[Artifact, Step]], list[tuple[Artifact, Step]]]:
-    """Return (challenges, revisions) whose target is this artifact.
+) -> tuple[
+    list[tuple[Artifact, Step]],
+    list[tuple[Artifact, Step]],
+    list[tuple[Artifact, Step]],
+]:
+    """Return (challenges, revisions, registrations) targeting this artifact.
 
     Uses `steps.target_artifact_id` — NOT input_artifact_ids — so evidence
-    inputs are not confused with the challenged/revised target.
+    inputs are not confused with the annotated target.
     """
     annotation_types = [t.value for t in ANNOTATION_STEP_TYPES]
     stmt = (
@@ -212,10 +216,15 @@ def get_annotations(
     )
     challenges: list[tuple[Artifact, Step]] = []
     revisions: list[tuple[Artifact, Step]] = []
+    registrations: list[tuple[Artifact, Step]] = []
     for step_row, art_row in session.execute(stmt):
         pair = (_to_artifact(art_row), _to_step(step_row))
         if step_row.step_type == StepType.CHALLENGE.value:
             challenges.append(pair)
-        else:
+        elif step_row.step_type == StepType.REVISE.value:
             revisions.append(pair)
-    return challenges, revisions
+        elif step_row.step_type == StepType.REGISTER.value:
+            registrations.append(pair)
+        else:
+            raise RuntimeError(f"unhandled annotation step_type {step_row.step_type!r}")
+    return challenges, revisions, registrations

@@ -121,13 +121,13 @@ Authorization: Bearer <publisher's DW key>
   },
   "actor_id": "osf-publisher:v1"
 }
-→ {"id": "art_<reg_record_id>", ...}
+→ {"id": "registry_record_<hex>", ...}
 
 POST https://provenance.researka.org/api/steps
 {
   "step_type": "register",
   "input_artifact_ids": [],
-  "output_artifact_id": "art_<reg_record_id>",
+  "output_artifact_id": "registry_record_<hex>",
   "target_artifact_id": "<claim_id>",
   "actor_id": "osf-publisher:v1",
   "method": {
