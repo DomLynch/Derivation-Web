@@ -47,7 +47,8 @@ web/    # Jinja templates served by api/. imports nothing.
 3. Chain view is primary; graph view is deferred.
 4. One producing step per artifact (DB unique constraint on `steps.output_artifact_id`).
 5. Artifacts dedupe on the composite `(content_hash, actor_id)` — same actor re-POSTing the same body returns the same id; a different actor POSTing the same body gets a distinct, attributed artifact. Creator provenance never silently merges.
-6. No new dependency without a line in `DECISIONS.md`.
+6. Artifact IDs are opaque stable tokens. New IDs use the artifact kind as a human-readable prefix (`claim_*`, `source_*`, etc.), but every lookup is exact string match only. Never parse, normalize, suffix-match, or rewrite IDs.
+7. No new dependency without a line in `DECISIONS.md`.
 
 ## Run
 ```

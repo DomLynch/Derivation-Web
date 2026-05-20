@@ -237,6 +237,86 @@ def test_artifact_idempotent_per_actor(client):
     assert first["content_hash"] == second["content_hash"]
 
 
+def test_artifact_id_uses_kind_as_prefix(client):
+    """Public-readability: an artifact ID tells you its kind at a glance.
+
+    `claim_<hex>`, `source_<hex>`, `challenge_<hex>`, `revision_<hex>` —
+    the prefix is the artifact kind, not the opaque `art_*` we used in v1.
+    """
+    client.post("/api/actors", json={"id": "p:dev", "kind": "human", "name": "P"})
+
+    cases = [
+        ("source", "src body"),
+        ("claim", "claim body"),
+        ("challenge", "challenge body"),
+        ("revision", "revision body"),
+    ]
+    for kind, body in cases:
+        r = client.post(
+            "/api/artifacts",
+            json={
+                "kind": kind,
+                "content_type": "text/plain",
+                "body_text": body,
+                "actor_id": "p:dev",
+            },
+        )
+        assert r.status_code == 201, r.text
+        assert r.json()["id"].startswith(f"{kind}_"), (
+            f"{kind} artifact ID should start with '{kind}_', got {r.json()['id']!r}"
+        )
+
+
+def test_legacy_art_prefix_still_resolves(client, db_engine):
+    """Backwards-compat: artifacts written under v1 with `art_*` IDs still
+    resolve via GET. We don't migrate or rewrite old IDs — they stay as
+    historical record. Exact-PK lookup means the prefix has no semantic.
+    """
+    from datetime import UTC, datetime
+
+    from derivation_web.core.hashing import content_hash
+    from derivation_web.db.schema import ActorRow, ArtifactRow
+
+    # Insert a fake legacy `art_*` row directly via SQLAlchemy (bypassing
+    # the route's new ID generator) to simulate a record from the v1 era.
+    with db_engine.begin() as conn:
+        conn.execute(
+            ActorRow.__table__.insert().values(
+                id="legacy:user", kind="human", name="Legacy"
+            )
+        )
+        body = "ancient claim from v1"
+        ch = content_hash(
+            kind="claim",
+            content_type="text/plain",
+            body_text=body,
+            body_base64=None,
+            metadata={},
+        )
+        conn.execute(
+            ArtifactRow.__table__.insert().values(
+                id="art_legacyabcd1234",  # legacy prefix on purpose
+                kind="claim",
+                content_type="text/plain",
+                body_text=body,
+                body_base64=None,
+                artifact_metadata={},
+                content_hash=ch,
+                actor_id="legacy:user",
+                created_at=datetime.now(UTC),
+            )
+        )
+
+    # Lookup by the legacy ID — must still work.
+    r = client.get("/api/artifacts/art_legacyabcd1234")
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == "art_legacyabcd1234"
+    assert r.json()["kind"] == "claim"
+
+    # No prefix normalization or suffix matching: IDs are exact stable tokens.
+    assert client.get("/api/artifacts/claim_legacyabcd1234").status_code == 404
+
+
 def test_cross_actor_identical_content_does_not_merge(client):
     """Regression for P1: cross-actor dedupe was silently reattributing authorship."""
     client.post(

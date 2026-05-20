@@ -90,10 +90,17 @@ POST /api/artifacts
   },
   "actor_id": "researka:agent:alice-v3"
 }
-→ 201 { "id": "art_<hex>", "content_hash": "<sha256 hex>", ... }
+→ 201 { "id": "source_<hex>", "content_hash": "<sha256 hex>", ... }
 ```
 
 - `kind`: `source | claim | challenge | revision`
+- **ID format:** the returned `id` is prefixed with the artifact's kind:
+  `source_<hex>`, `claim_<hex>`, `challenge_<hex>`, `revision_<hex>`.
+  Reading an ID tells you what it points to without a lookup.
+- **Contract:** IDs are opaque stable tokens. Store and transmit the exact
+  string DW returns. The prefix is a human-readable type hint; DW does not
+  parse, normalize, or rewrite it on lookup. `art_*` legacy IDs resolve
+  because those literal strings remain in the column.
 - **Exactly one** of `body_text` / `body_base64` must be set. DW rejects
   payloads that set both or neither.
 - Size cap: the body, measured as UTF-8 bytes (text) or base64 characters
@@ -119,8 +126,8 @@ POST /api/steps
 
 {
   "step_type": "summarize",
-  "input_artifact_ids": ["art_src1", "art_src2"],
-  "output_artifact_id": "art_claim",
+  "input_artifact_ids": ["source_src1", "source_src2"],
+  "output_artifact_id": "claim_xyz",
   "target_artifact_id": null,
   "actor_id": "researka:agent:alice-v3",
   "method": {
@@ -171,29 +178,29 @@ not accidentally mark that evidence as "challenged." Only the explicit
 ## Challenges & revisions — full flow
 
 ```http
-# Challenge "art_claim" with two pieces of contradicting evidence:
+# Challenge "claim_xyz" with two pieces of contradicting evidence:
 POST /api/artifacts { "kind": "challenge", "body_text": "reason...", "actor_id": "..." }
-→ { "id": "art_ch1", ... }
+→ { "id": "challenge_ch1", ... }
 POST /api/steps {
   "step_type": "challenge",
-  "input_artifact_ids": ["art_ev1", "art_ev2"],
-  "output_artifact_id": "art_ch1",
-  "target_artifact_id": "art_claim",
+  "input_artifact_ids": ["source_ev1", "source_ev2"],
+  "output_artifact_id": "challenge_ch1",
+  "target_artifact_id": "claim_xyz",
   "actor_id": "...",
   "method": { "reason_code": "overstated" },
   "created_at": "2026-04-24T12:00:00+00:00"
 }
 
-# Revise "art_claim" based on the challenge:
+# Revise "claim_xyz" based on the challenge:
 POST /api/artifacts { "kind": "revision", "body_text": "revised text", "actor_id": "..." }
-→ { "id": "art_rev1", ... }
+→ { "id": "revision_rev1", ... }
 POST /api/steps {
   "step_type": "revise",
-  "input_artifact_ids": ["art_ch1"],
-  "output_artifact_id": "art_rev1",
-  "target_artifact_id": "art_claim",
+  "input_artifact_ids": ["challenge_ch1"],
+  "output_artifact_id": "revision_rev1",
+  "target_artifact_id": "claim_xyz",
   "actor_id": "...",
-  "method": { "based_on_challenge": "art_ch1" },
+  "method": { "based_on_challenge": "challenge_ch1" },
   "created_at": "2026-04-24T12:05:00+00:00"
 }
 ```
@@ -211,7 +218,7 @@ Chain response shape:
 
 ```json
 {
-  "root_id": "art_claim",
+  "root_id": "claim_xyz",
   "nodes": [
     {
       "artifact": { ... },

@@ -1,5 +1,15 @@
 # DECISION JOURNAL
 
+## 2026-05-20 — Artifact IDs use kind as prefix (`claim_<hex>`, etc.); `art_*` stays valid forever
+**Decision:** New artifact IDs are minted with the artifact's `kind` as the prefix: `source_<16hex>`, `claim_<16hex>`, `challenge_<16hex>`, `revision_<16hex>`. Steps remain `step_<16hex>`. API keys remain `key_<12hex>`. Legacy `art_<16hex>` IDs created before this date continue to resolve by exact primary-key lookup; they are not migrated, rewritten, normalized, or aliased.
+**Why:** DW IDs travel outside the system — into Researka's DB (`dw_artifact_id`), into citations on published papers, into URLs that show up in news articles and verification flows. `art_<hex>` requires a reader to know what "art" stands for before they can interpret the link. Self-typing the prefix (`claim_*` says "this is a claim") removes that lookup step for everyone downstream. GitHub (`commit/<sha>`, `pull/<num>`), DOI (registrant-routed), and arXiv (year-coded) all do the same: when IDs travel, the format teaches the reader.
+**Implementation cost:** one line in `derivation_web/api/routes.py` (`_new_id("art")` -> `_new_id(payload.kind.value)`). Lookup remains exact-PK match on `artifacts.id`, so legacy IDs need no special routing. The prefix is a human-readable type hint, not a lookup rule.
+**Alternatives rejected:**
+- Migrate legacy `art_*` IDs to the new format — would invalidate every `dw_artifact_id` already stored by Researka (133 of them as of 2026-05-19) and any external citation already in flight. Pure cost, no benefit.
+- Keep `art_*` and present friendly labels in a reader UI layer — defers the problem to a UI we haven't built; once IDs are in a paper PDF, the format is frozen for that document. Pay the small cost now.
+- Use a URN/URI scheme like `dw:artifact:<hex>` — colons URL-encode badly; loses the citation-safe property.
+**Revisit:** only when adding new artifact kinds. Future kinds follow the same forward-only issuance rule; old IDs still resolve only as their literal stored strings.
+
 ## 2026-04-24 — Passive ledger, not active executor
 **Decision:** DW never calls an LLM. Clients POST pre-computed derivations.
 **Why:** Keeps DW deterministic, dependency-free, and matches "Researka is customer zero." Moves LLM-shaped risk into the consumer.

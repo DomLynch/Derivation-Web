@@ -86,7 +86,8 @@ def create_artifact(payload: ArtifactCreate, session: SessionDep) -> Artifact:
         return existing
 
     artifact = Artifact(
-        id=_new_id("art"),
+        # Prefix is a type hint only; lookup remains exact string match.
+        id=_new_id(payload.kind.value),
         kind=payload.kind,
         content_type=payload.content_type,
         body_text=payload.body_text,
